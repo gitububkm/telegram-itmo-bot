@@ -321,51 +321,11 @@ async def run_bot_async():
     except Exception as e:
         logger.warning(f"⚠️ Не удалось удалить вебхук (возможно, его уже нет): {e}")
 
-    # Уведомление о запуске отправляется только в логах
     logger.info("🤖 Бот запущен и готов к работе!")
-
-    # Запускаем бота в режиме polling
     logger.info("🎯 Бот запущен в режиме polling")
 
-    # Основной цикл с перезапуском при ошибках
-    restart_count = 0
-    max_restarts = 5
-
-    while restart_count < max_restarts:
-        try:
-            logger.info(f"🎯 Попытка запуска бота #{restart_count + 1}")
-            await application.run_polling()
-            break  # Если дошли сюда, значит бот работал нормально
-        except KeyboardInterrupt:
-            logger.info("⏹️ Бот завершен пользователем")
-            break
-        except Exception as e:
-            restart_count += 1
-            logger.error(f"❌ Ошибка при работе бота (попытка #{restart_count}): {e}")
-
-            if restart_count < max_restarts:
-                logger.info(f"🔄 Перезапуск бота через 10 секунд...")
-                await asyncio.sleep(10)
-                # Пересоздаем приложение для новой попытки
-                try:
-                    await application.shutdown()
-                except:
-                    pass
-                application = Application.builder().token(token).build()
-                application.add_handler(CommandHandler("start", start))
-                application.add_handler(CallbackQueryHandler(button_handler))
-                application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-                application.add_error_handler(error_handler)
-            else:
-                logger.error("❌ Достигнуто максимальное количество перезапусков")
-                break
-
-    # Правильно завершаем приложение
-    try:
-        await application.shutdown()
-        logger.info("✅ Приложение Telegram Bot API завершено")
-    except Exception as e:
-        logger.warning(f"⚠️ Ошибка при завершении приложения: {e}")
+    # Запускаем бота в режиме polling (блокирующая операция)
+    await application.run_polling()
 
 async def stop_bot():
     """Асинхронная функция для остановки бота"""
@@ -376,7 +336,7 @@ async def run_main_async():
     """Асинхронная основная функция"""
     logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
 
-    # Запускаем веб-сервер асинхронно в отдельном потоке
+    # Запускаем веб-сервер в отдельном потоке
     if start_web_server:
         try:
             web_thread = threading.Thread(target=start_web_server, daemon=True)
@@ -395,19 +355,17 @@ async def run_main_async():
     # Запускаем бота
     await run_bot_async()
 
-def main():
+if __name__ == '__main__':
     """Основная функция - точка входа"""
     try:
-        # Используем asyncio.run для запуска асинхронной функции
+        # Просто запускаем асинхронную функцию
         asyncio.run(run_main_async())
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
+        print("Бот остановлен пользователем")
     except Exception as e:
         logger.error(f"❌ Критическая ошибка бота: {e}")
+        print(f"Критическая ошибка: {e}")
     finally:
-        logger.info("Завершаем работу бота...")
-        update_bot_status(running=False)
         logger.info("⏹️ Работа завершена")
-
-if __name__ == '__main__':
-    main()
+        print("Работа завершена")
