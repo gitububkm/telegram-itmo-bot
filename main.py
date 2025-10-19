@@ -275,12 +275,12 @@ def webhook():
             <p><strong>Статус:</strong> {"✅ Готов к приему сообщений" if bot else "❌ Бот не инициализирован"}</p>
             <p><strong>URL:</strong> <code>https://telegram-itmo-bot-.onrender.com/webhook</code></p>
             <hr>
-            <h3>🚨 Проверьте настройку вебхука!</h3>
-            <p>Если вы видите эту страницу вместо ответа бота, значит вебхук не настроен.</p>
-            <p><strong>Выполните команду:</strong></p>
-            <code style="background: #fff3cd; padding: 10px; display: block; margin: 10px;">
-            curl "https://api.telegram.org/bot8181605760:AAFm06efAuVxbFLU0OGUhoYMXG3MUznvoh0/setWebhook?url=https://telegram-itmo-bot-.onrender.com/webhook"
+            <h3>🚨 Проверьте статус вебхука!</h3>
+            <p><strong>Выполните команду для проверки:</strong></p>
+            <code style="background: #e7f3ff; padding: 10px; display: block; margin: 10px;">
+            curl "https://api.telegram.org/bot8181605760:AAFm06efAuVxbFLU0OGUhoYMXG3MUznvoh0/getWebhookInfo"
             </code>
+            <p><strong>Должен показать ваш вебхук URL.</strong></p>
             <p><a href="/">← Вернуться на главную</a></p>
         </body>
         </html>
