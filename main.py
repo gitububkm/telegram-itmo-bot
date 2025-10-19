@@ -327,19 +327,45 @@ async def run_bot_async():
     # Запускаем бота в режиме polling
     logger.info("🎯 Бот запущен в режиме polling")
 
-    try:
-        await application.run_polling()
-    except KeyboardInterrupt:
-        logger.info("⏹️ Бот завершен пользователем")
-    except Exception as e:
-        logger.error(f"❌ Ошибка при работе бота: {e}")
-    finally:
-        # Правильно завершаем приложение
+    # Основной цикл с перезапуском при ошибках
+    restart_count = 0
+    max_restarts = 5
+
+    while restart_count < max_restarts:
         try:
-            await application.shutdown()
-            logger.info("✅ Приложение Telegram Bot API завершено")
+            logger.info(f"🎯 Попытка запуска бота #{restart_count + 1}")
+            await application.run_polling()
+            break  # Если дошли сюда, значит бот работал нормально
+        except KeyboardInterrupt:
+            logger.info("⏹️ Бот завершен пользователем")
+            break
         except Exception as e:
-            logger.warning(f"⚠️ Ошибка при завершении приложения: {e}")
+            restart_count += 1
+            logger.error(f"❌ Ошибка при работе бота (попытка #{restart_count}): {e}")
+
+            if restart_count < max_restarts:
+                logger.info(f"🔄 Перезапуск бота через 10 секунд...")
+                await asyncio.sleep(10)
+                # Пересоздаем приложение для новой попытки
+                try:
+                    await application.shutdown()
+                except:
+                    pass
+                application = Application.builder().token(token).build()
+                application.add_handler(CommandHandler("start", start))
+                application.add_handler(CallbackQueryHandler(button_handler))
+                application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+                application.add_error_handler(error_handler)
+            else:
+                logger.error("❌ Достигнуто максимальное количество перезапусков")
+                break
+
+    # Правильно завершаем приложение
+    try:
+        await application.shutdown()
+        logger.info("✅ Приложение Telegram Bot API завершено")
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка при завершении приложения: {e}")
 
 async def stop_bot():
     """Асинхронная функция для остановки бота"""

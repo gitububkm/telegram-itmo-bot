@@ -88,6 +88,23 @@ def run_web_server():
     server_thread.start()
     logger.info(f"Веб-сервер запущен на порту {port}")
 
+    # Добавляем мониторинг состояния каждые 5 минут
+    def health_monitor():
+        import time
+        start_time = time.time()
+        while True:
+            try:
+                current_time = time.time()
+                uptime = current_time - start_time
+                logger.info(f"💚 Мониторинг состояния: бот работает {uptime:.0f} секунд")
+            except Exception as e:
+                logger.warning(f"Ошибка мониторинга состояния: {e}")
+            time.sleep(300)  # Каждые 5 минут
+
+    monitor_thread = threading.Thread(target=health_monitor, daemon=True)
+    monitor_thread.start()
+    logger.info("Мониторинг состояния запущен")
+
 def start_web_server():
     """Запускает веб-сервер в фоне"""
     # run_web_server уже создает свой поток
