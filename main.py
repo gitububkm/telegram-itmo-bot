@@ -286,8 +286,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update and update.message:
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
-def create_application():
-    """Создает и настраивает Telegram Application"""
+async def create_application():
+    """Создает и настраивает Telegram Application асинхронно"""
     logger.info("🚀 Инициализация Telegram бота ИТМО...")
 
     # Загружаем расписание
@@ -309,9 +309,9 @@ def create_application():
     application = Application.builder().token(token).build()
     logger.info("📱 Application создан с токеном")
 
-    # Инициализируем приложение (обязательно для версии 21.7+)
-    application.initialize()
-    logger.info("🔧 Application инициализирован")
+    # Инициализируем приложение асинхронно (обязательно для версии 21.7+)
+    await application.initialize()
+    logger.info("🔧 Application инициализирован асинхронно")
 
     # Регистрируем обработчики
     application.add_handler(CommandHandler("start", start))
@@ -323,31 +323,32 @@ def create_application():
     logger.info("✅ Telegram Application создан и настроен")
     return application
 
-def main():
-    """Основная функция запуска бота с webhook"""
+async def main():
+    """Основная асинхронная функция запуска бота с webhook"""
     logger.info("🚀 Запуск Telegram бота ИТМО с webhook...")
 
-    # Создаем Telegram Application
-    application = create_application()
+    # Создаем Telegram Application асинхронно
+    application = await create_application()
     if not application:
         logger.error("❌ Не удалось создать Telegram Application")
         return
 
     # Инициализируем веб-сервер с Telegram Application
     initialize_telegram_app(application)
-    
+
     # Обновляем статус бота
     update_bot_status(running=True)
-    
+
     logger.info("✅ Бот готов к работе через webhook")
-    
+
     # Запускаем веб-сервер (блокирующий вызов)
     run_server()
 
 if __name__ == '__main__':
     """Основная функция - точка входа"""
     try:
-        main()
+        import asyncio
+        asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
         print("Бот остановлен пользователем")
