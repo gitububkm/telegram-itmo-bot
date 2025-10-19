@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 # Расписание (будет загружено из переменной окружения)
 SCHEDULE_DATA = None
 
-# Токен бота
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8181605760:AAFm06efAuVxbFLU0OGUhoYMXG3MUznvoh0')
+# Токен бота (берется только из переменной окружения)
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 def load_schedule():
     """Загружает расписание из переменной окружения"""
@@ -210,11 +210,19 @@ def main():
     load_schedule()
 
     if not SCHEDULE_DATA:
-        logger.error("Не удалось загрузить расписание")
+        logger.error("Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
+        logger.error("Убедитесь, что переменная окружения SCHEDULE_JSON установлена в Render Dashboard")
+        return
+
+    # Проверяем токен
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if not token:
+        logger.error("Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
+        logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
         return
 
     # Создаем приложение
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(token).build()
 
     # Регистрируем обработчики
     application.add_handler(CommandHandler("start", start))

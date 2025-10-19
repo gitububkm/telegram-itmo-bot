@@ -30,6 +30,10 @@ def main():
     print("\n📋 Проверка статуса git...")
     git_status = run_command("git status --porcelain", "Проверка статуса git")
 
+    # Обновляем runtime.txt для совместимости
+    print("\n🔧 Обновление runtime.txt для совместимости...")
+    run_command("git add runtime.txt", "Добавление обновленного runtime.txt")
+
     if git_status:
         files = git_status.strip().split('\n')
         if files and files[0]:  # Если есть файлы для коммита
@@ -85,13 +89,15 @@ def main():
     run_command("git status", "Финальный статус git")
 
     print("\n" + "=" * 60)
-    print("🎉 Репозиторий готов к деплою на Render!")
+    print("🎉 Репозиторий готов к повторному деплою на Render!")
     print("\n📝 Следующие шаги:")
-    print("1. Закоммитьте изменения: git add . && git commit -m 'Prepare for Render deploy'")
+    print("1. Закоммитьте изменения: git add . && git commit -m 'Fix Python version compatibility'")
     print("2. Отправьте на GitHub: git push")
-    print("3. Создайте Web Service на render.com")
-    print("4. Настройте переменные окружения в Render Dashboard")
-    print("5. Используйте скрипт get_schedule_for_render.py для получения SCHEDULE_JSON")
+    print("3. Render автоматически запустит повторный деплой")
+    print("4. Убедитесь, что переменные окружения установлены в Render Dashboard:")
+    print("   - TELEGRAM_BOT_TOKEN: ваш токен бота")
+    print("   - SCHEDULE_JSON: ваше расписание (из env_example.txt)")
+    print("5. Проверьте логи в Render Dashboard после деплоя")
 
     return True
 
