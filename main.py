@@ -232,7 +232,21 @@ def main():
 
     # Запускаем бота
     logger.info("Бот запущен")
-    application.run_polling()
+
+    # Проверяем, запущен ли бот в Render (есть переменная PORT)
+    port = os.getenv('PORT')
+    if port:
+        # Запуск в режиме веб-сервера для вебхуков
+        logger.info("Запуск в режиме веб-сервера для Render")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=int(port),
+            webhook_url=None  # Будет настроен через setWebhook
+        )
+    else:
+        # Запуск в режиме polling для локальной разработки
+        logger.info("Запуск в режиме polling")
+        application.run_polling()
 
 if __name__ == '__main__':
     main()
