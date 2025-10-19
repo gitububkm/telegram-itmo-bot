@@ -242,22 +242,49 @@ def init_bot():
 @app.route('/', methods=['GET'])
 def home():
     """Домашняя страница для проверки сервера"""
-    return jsonify({
-        'status': 'server running',
-        'bot_initialized': bot is not None,
-        'webhook_url': '/webhook',
-        'message': 'Send POST requests to /webhook for Telegram updates'
-    }), 200
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head><title>Telegram ИТМО Бот</title></head>
+    <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h1>🤖 Telegram ИТМО Бот</h1>
+        <p><strong>Статус:</strong> {"✅ Сервер работает" if bot else "❌ Бот не инициализирован"}</p>
+        <p><strong>Вебхук:</strong> <code>/webhook</code></p>
+        <p><strong>URL для вебхука:</strong> <code>https://telegram-itmo-bot-.onrender.com/webhook</code></p>
+        <hr>
+        <h3>🚨 Вебхук не настроен!</h3>
+        <p>Выполните команду в терминале:</p>
+        <code style="background: #f0f0f0; padding: 10px; display: block; margin: 10px;">
+        curl "https://api.telegram.org/bot8181605760:AAFm06efAuVxbFLU0OGUhoYMXG3MUznvoh0/setWebhook?url=https://telegram-itmo-bot-.onrender.com/webhook"
+        </code>
+        <p>После настройки вебхука отправьте <code>/start</code> боту в Telegram</p>
+    </body>
+    </html>
+    '''
 
 @app.route('/webhook', methods=['POST', 'GET'])
 def webhook():
     """Обработчик вебхуков от Telegram"""
     if request.method == 'GET':
-        return jsonify({
-            'status': 'webhook active',
-            'bot_initialized': bot is not None,
-            'message': 'This endpoint accepts POST requests from Telegram'
-        }), 200
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Вебхук Telegram Бота</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h1>🔗 Вебхук Telegram Бота</h1>
+            <p><strong>Статус:</strong> {"✅ Готов к приему сообщений" if bot else "❌ Бот не инициализирован"}</p>
+            <p><strong>URL:</strong> <code>https://telegram-itmo-bot-.onrender.com/webhook</code></p>
+            <hr>
+            <h3>🚨 Проверьте настройку вебхука!</h3>
+            <p>Если вы видите эту страницу вместо ответа бота, значит вебхук не настроен.</p>
+            <p><strong>Выполните команду:</strong></p>
+            <code style="background: #fff3cd; padding: 10px; display: block; margin: 10px;">
+            curl "https://api.telegram.org/bot8181605760:AAFm06efAuVxbFLU0OGUhoYMXG3MUznvoh0/setWebhook?url=https://telegram-itmo-bot-.onrender.com/webhook"
+            </code>
+            <p><a href="/">← Вернуться на главную</a></p>
+        </body>
+        </html>
+        '''
 
     if not bot:
         return jsonify({'error': 'Bot not initialized'}), 500
