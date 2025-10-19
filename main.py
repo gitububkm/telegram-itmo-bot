@@ -239,11 +239,25 @@ def init_bot():
 
     return True
 
+@app.route('/', methods=['GET'])
+def home():
+    """Домашняя страница для проверки сервера"""
+    return jsonify({
+        'status': 'server running',
+        'bot_initialized': bot is not None,
+        'webhook_url': '/webhook',
+        'message': 'Send POST requests to /webhook for Telegram updates'
+    }), 200
+
 @app.route('/webhook', methods=['POST', 'GET'])
 def webhook():
     """Обработчик вебхуков от Telegram"""
     if request.method == 'GET':
-        return jsonify({'status': 'webhook active', 'bot_initialized': bot is not None}), 200
+        return jsonify({
+            'status': 'webhook active',
+            'bot_initialized': bot is not None,
+            'message': 'This endpoint accepts POST requests from Telegram'
+        }), 200
 
     if not bot:
         return jsonify({'error': 'Bot not initialized'}), 500
