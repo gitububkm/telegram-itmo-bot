@@ -40,14 +40,16 @@ def load_schedule():
         logger.error("Переменная окружения SCHEDULE_JSON не найдена")
         SCHEDULE_DATA = None
 
-def get_current_week_type():
+def get_current_week_type(target_date=None):
     """Определяет тип текущей недели (четная/нечетная)"""
+    if target_date is None:
+        target_date = datetime.now()
+
     # Базовая дата - 12 октября 2025, воскресенье, конец четной недели
     base_date = datetime(2025, 10, 12)  # воскресенье
 
     # Вычисляем количество недель с базовой даты
-    today = datetime.now()
-    days_since_base = (today - base_date).days
+    days_since_base = (target_date - base_date).days
 
     # Определяем тип недели
     # Базовая дата - конец четной недели, поэтому:
@@ -97,7 +99,7 @@ def get_schedule_for_date(date_str=None):
         else:
             target_date = datetime.now()
 
-        current_week_type = get_current_week_type()
+        current_week_type = get_current_week_type(target_date)
         weekday_name = get_weekday_name(target_date)
 
         # Находим нужную неделю в расписании
