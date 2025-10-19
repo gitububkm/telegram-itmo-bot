@@ -63,14 +63,13 @@ def get_weekday_name(date):
     return weekdays[date.weekday()]
 
 def format_class_info(class_item):
-    """Форматирует информацию о занятии"""
+    """Форматирует информацию о занятии в минималистичном стиле"""
     if 'window' in class_item:
-        return f"🪟 Окно: {class_item['window']} ({class_item['duration']})"
+        return f"🪟 Окно {class_item['window']} ({class_item['duration']})"
     else:
         return (
-            f"⏰ {class_item['time']}\n"
             f"📚 {class_item['subject']}\n"
-            f"🏢 Аудитория: {class_item['room']}\n"
+            f"⏰ {class_item['time']} • Ауд. {class_item['room']}\n"
             f"📍 {class_item['address']}\n"
         )
 
