@@ -3,7 +3,6 @@ import json
 import logging
 import time
 import threading
-import asyncio
 import pickle
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -286,8 +285,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
 
-async def run_bot_async():
-    """Асинхронная функция для запуска бота"""
+def run_bot():
+    """Функция для запуска бота в отдельном потоке"""
     logger.info("🚀 Запуск Telegram бота ИТМО...")
 
     # Загружаем расписание
@@ -314,26 +313,21 @@ async def run_bot_async():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     application.add_error_handler(error_handler)
 
-    # Удаляем вебхук асинхронно
+    # Удаляем вебхук
     try:
-        await application.bot.delete_webhook()
-        logger.info("✅ Вебхук успешно удален")
+        application.run_polling()
     except Exception as e:
-        logger.warning(f"⚠️ Не удалось удалить вебхук (возможно, его уже нет): {e}")
-
-    logger.info("🤖 Бот запущен и готов к работе!")
-    logger.info("🎯 Бот запущен в режиме polling")
-
-    # Запускаем бота в режиме polling (блокирующая операция)
-    await application.run_polling()
+        logger.error(f"❌ Ошибка при работе бота: {e}")
+    finally:
+        logger.info("⏹️ Бот завершен")
 
 async def stop_bot():
     """Асинхронная функция для остановки бота"""
     logger.info("Остановка бота...")
     # Здесь можно добавить дополнительную логику остановки если нужно
 
-async def run_main_async():
-    """Асинхронная основная функция"""
+def run_main():
+    """Основная функция запуска"""
     logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
 
     # Запускаем веб-сервер в отдельном потоке
@@ -347,19 +341,19 @@ async def run_main_async():
             logger.info("Бот будет работать без веб-сервера")
 
     # Ждем немного, чтобы веб-сервер успел запуститься
-    await asyncio.sleep(2)
+    time.sleep(2)
 
     # Обновляем статус бота
     update_bot_status(running=True)
 
-    # Запускаем бота
-    await run_bot_async()
+    # Запускаем бота в основном потоке
+    run_bot()
 
 if __name__ == '__main__':
     """Основная функция - точка входа"""
     try:
-        # Просто запускаем асинхронную функцию
-        asyncio.run(run_main_async())
+        # Запускаем синхронную функцию
+        run_main()
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
         print("Бот остановлен пользователем")
