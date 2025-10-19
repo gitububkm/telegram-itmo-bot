@@ -1,9 +1,19 @@
 import os
 import json
 import logging
+import time
+import threading
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+
+# Импортируем веб-сервер
+try:
+    from web_server import start_web_server, update_bot_status
+except ImportError:
+    start_web_server = None
+    def update_bot_status(**kwargs):
+        pass
 
 # Настройка логирования
 logging.basicConfig(
@@ -217,8 +227,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
 
-def main():
-    """Основная функция"""
+def run_bot():
+    """Функция для запуска бота в отдельном потоке"""
     logger.info("Запуск Telegram бота ИТМО...")
 
     # Загружаем расписание
@@ -235,6 +245,9 @@ def main():
         logger.error("Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
         logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
         return
+
+    # Обновляем статус бота
+    update_bot_status(running=True)
 
     # Создаем приложение
     application = Application.builder().token(token).build()
@@ -267,11 +280,45 @@ def main():
         logger.error(f"Ошибка при работе бота: {e}")
     finally:
         logger.info("Завершаем работу бота...")
+        update_bot_status(running=False)
         try:
             loop.run_until_complete(application.stop())
         except Exception:
             pass
         loop.close()
+
+def main():
+    """Основная функция"""
+    logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
+
+    # Запускаем веб-сервер в фоновом режиме (если доступен)
+    if start_web_server:
+        try:
+            start_web_server()
+            logger.info("✅ Веб-сервер запущен параллельно с ботом")
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
+            logger.info("Бот будет работать без веб-сервера")
+
+    # Ждем немного, чтобы веб-сервер успел запуститься
+    time.sleep(2)
+
+    # Запускаем бота в отдельном потоке
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+
+    logger.info("🎯 Бот и веб-сервер запущены!")
+
+    # Держим главный поток активным
+    try:
+        while True:
+            time.sleep(10)
+            # Периодически обновляем статус (сердцебиение)
+            current_time = time.time()
+            update_bot_status(last_update=current_time)
+    except KeyboardInterrupt:
+        logger.info("⏹️ Остановка сервисов пользователем...")
+        update_bot_status(running=False)
 
 if __name__ == '__main__':
     main()
