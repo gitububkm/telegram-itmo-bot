@@ -18,6 +18,7 @@ SCHEDULE_DATA = None
 TOKEN = None
 bot = None
 app = Flask(__name__)
+application = None
 
 def load_schedule():
     """Загружает расписание из переменной окружения"""
@@ -207,7 +208,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def init_bot():
     """Инициализирует бота и загружает данные"""
-    global TOKEN, bot
+    global TOKEN, bot, application
 
     # Загружаем расписание
     load_schedule()
@@ -226,6 +227,16 @@ def init_bot():
 
     TOKEN = token
     bot = Bot(token=token)
+
+    # Создаем глобальный application
+    application = Application.builder().token(token).build()
+
+    # Регистрируем обработчики
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    application.add_error_handler(error_handler)
+
     return True
 
 @app.route('/webhook', methods=['POST'])
@@ -251,16 +262,13 @@ def webhook():
 
 async def process_update(update):
     """Обрабатывает обновление от Telegram"""
-    # Создаем минимальное приложение для обработки одного обновления
-    application = Application.builder().token(TOKEN).build()
+    global application
 
-    # Регистрируем обработчики
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    application.add_error_handler(error_handler)
+    if not application:
+        logger.error("Application не инициализирован")
+        return
 
-    # Обрабатываем обновление
+    # Обрабатываем обновление через глобальный application
     await application.process_update(update)
 
 def main():
@@ -287,13 +295,14 @@ def main():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        application = Application.builder().token(TOKEN).build()
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CallbackQueryHandler(button_handler))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-        application.add_error_handler(error_handler)
+        # Создаем локальный application для polling режима
+        local_app = Application.builder().token(TOKEN).build()
+        local_app.add_handler(CommandHandler("start", start))
+        local_app.add_handler(CallbackQueryHandler(button_handler))
+        local_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+        local_app.add_error_handler(error_handler)
 
-        loop.run_until_complete(application.run_polling())
+        loop.run_until_complete(local_app.run_polling())
         loop.close()
 
 if __name__ == '__main__':

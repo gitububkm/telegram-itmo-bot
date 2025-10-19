@@ -91,15 +91,15 @@ def main():
     print("\n" + "=" * 60)
     print("🎉 Репозиторий готов к повторному деплою на Render!")
     print("\n📝 Следующие шаги:")
-    print("1. Закоммитьте изменения: git add . && git commit -m 'Add Flask webhook server for Render deployment'")
+    print("1. Закоммитьте изменения: git add . && git commit -m 'Fix webhook processing for python-telegram-bot 21.7'")
     print("2. Отправьте на GitHub: git push")
     print("3. Render автоматически запустит повторный деплой")
     print("4. Убедитесь, что переменные окружения установлены в Render Dashboard:")
     print("   - TELEGRAM_BOT_TOKEN: ваш токен бота")
     print("   - SCHEDULE_JSON: ваше расписание (из env_example.txt)")
-    print("5. После деплоя настройте вебхук:")
-    print("   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://your-app.onrender.com/webhook")
+    print("5. После деплоя вебхук уже настроен и должен работать автоматически")
     print("6. Проверьте логи в Render Dashboard после деплоя")
+    print("7. Если есть проблемы - проверьте, что бот отвечает на /start в Telegram")
 
     return True
 
