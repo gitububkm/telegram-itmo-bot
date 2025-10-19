@@ -144,13 +144,13 @@ curl "https://api.telegram.org/botyour_bot_token_here/getWebhookInfo"
 #### **ШАГ 2: Проверьте сервер**
 Откройте в браузере:
 ```
-https://telegram-itmo-bot-.onrender.com/
+https://telegram-itmo-bot.onrender.com/
 ```
 Увидите статус сервера и инструкции.
 
 #### **ШАГ 3: Проверьте вебхук endpoint**
 ```
-https://telegram-itmo-bot-.onrender.com/webhook
+https://telegram-itmo-bot.onrender.com/webhook
 ```
 Увидите статус вебхука.
 
@@ -162,7 +162,7 @@ https://telegram-itmo-bot-.onrender.com/webhook
 ### 🔍 **Возможные проблемы:**
 
 1. **Вебхук не настроен** - выполните команду `setWebhook`
-2. **Неправильный URL** - убедитесь, что URL точно `https://telegram-itmo-bot-.onrender.com/webhook`
+2. **Неправильный URL** - убедитесь, что URL точно `https://telegram-itmo-bot.onrender.com/webhook`
 3. **Переменные окружения** - проверьте, что токен и расписание установлены в Render
 4. **Логи сервера** - проверьте ошибки в Render Dashboard
 
