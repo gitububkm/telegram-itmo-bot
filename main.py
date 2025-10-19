@@ -45,17 +45,24 @@ def get_current_week_type(target_date=None):
     if target_date is None:
         target_date = datetime.now()
 
+    # Находим ближайший понедельник в прошлом (день отсчета)
+    days_since_monday = (target_date.weekday() - 0) % 7  # 0 = понедельник
+    if days_since_monday == 0:  # Если сегодня понедельник
+        reference_monday = target_date
+    else:
+        reference_monday = target_date - timedelta(days=days_since_monday)
+
     # Базовая дата - 12 октября 2025, воскресенье, конец четной недели
     base_date = datetime(2025, 10, 12)  # воскресенье
 
-    # Вычисляем количество недель с базовой даты
-    days_since_base = (target_date - base_date).days
-
-    # Определяем тип недели
-    # Базовая дата - конец четной недели, поэтому:
-    # Если прошло четное количество недель - нечетная неделя
-    # Если прошло нечетное количество недель - четная неделя
+    # Вычисляем количество недель с базовой даты до дня отсчета
+    days_since_base = (reference_monday - base_date).days
     weeks_since_base = days_since_base // 7
+
+    # Определяем тип недели на основе дня отсчета
+    # Базовая дата - конец четной недели, поэтому:
+    # Если день отсчета - четное количество недель от базовой даты - нечетная неделя
+    # Если день отсчета - нечетное количество недель от базовой даты - четная неделя
     if weeks_since_base % 2 == 0:
         return 1  # нечетная неделя
     else:
