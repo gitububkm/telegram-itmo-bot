@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import time
-import threading
 import pickle
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,9 +9,12 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 
 # Импортируем веб-сервер
 try:
-    from web_server import start_web_server, update_bot_status
+    from web_server import initialize_telegram_app, run_server, update_bot_status
 except ImportError:
-    start_web_server = None
+    def initialize_telegram_app(app):
+        pass
+    def run_server():
+        pass
     def update_bot_status(**kwargs):
         pass
 
@@ -284,10 +286,9 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update and update.message:
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
-
-def run_bot():
-    """Функция для запуска бота в отдельном потоке"""
-    logger.info("🚀 Запуск Telegram бота ИТМО...")
+def create_application():
+    """Создает и настраивает Telegram Application"""
+    logger.info("🚀 Инициализация Telegram бота ИТМО...")
 
     # Загружаем расписание
     load_schedule()
@@ -295,14 +296,14 @@ def run_bot():
     if not SCHEDULE_DATA:
         logger.error("❌ Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
         logger.error("Убедитесь, что переменная окружения SCHEDULE_JSON установлена в Render Dashboard")
-        return
+        return None
 
     # Проверяем токен
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    token = os.getenv('BOT_TOKEN')
     if not token:
-        logger.error("❌ Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
-        logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
-        return
+        logger.error("❌ Не найден токен бота в переменной окружения BOT_TOKEN")
+        logger.error("Убедитесь, что переменная окружения BOT_TOKEN установлена в Render Dashboard")
+        return None
 
     # Создаем приложение
     application = Application.builder().token(token).build()
@@ -313,47 +314,34 @@ def run_bot():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     application.add_error_handler(error_handler)
 
-    # Удаляем вебхук
-    try:
-        application.run_polling()
-    except Exception as e:
-        logger.error(f"❌ Ошибка при работе бота: {e}")
-    finally:
-        logger.info("⏹️ Бот завершен")
+    logger.info("✅ Telegram Application создан и настроен")
+    return application
 
-async def stop_bot():
-    """Асинхронная функция для остановки бота"""
-    logger.info("Остановка бота...")
-    # Здесь можно добавить дополнительную логику остановки если нужно
+def main():
+    """Основная функция запуска бота с webhook"""
+    logger.info("🚀 Запуск Telegram бота ИТМО с webhook...")
 
-def run_main():
-    """Основная функция запуска"""
-    logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
+    # Создаем Telegram Application
+    application = create_application()
+    if not application:
+        logger.error("❌ Не удалось создать Telegram Application")
+        return
 
-    # Запускаем веб-сервер в отдельном потоке
-    if start_web_server:
-        try:
-            web_thread = threading.Thread(target=start_web_server, daemon=True)
-            web_thread.start()
-            logger.info("✅ Веб-сервер запущен параллельно с ботом")
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
-            logger.info("Бот будет работать без веб-сервера")
-
-    # Ждем немного, чтобы веб-сервер успел запуститься
-    time.sleep(2)
-
+    # Инициализируем веб-сервер с Telegram Application
+    initialize_telegram_app(application)
+    
     # Обновляем статус бота
     update_bot_status(running=True)
-
-    # Запускаем бота в основном потоке
-    run_bot()
+    
+    logger.info("✅ Бот готов к работе через webhook")
+    
+    # Запускаем веб-сервер (блокирующий вызов)
+    run_server()
 
 if __name__ == '__main__':
     """Основная функция - точка входа"""
     try:
-        # Запускаем синхронную функцию
-        run_main()
+        main()
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
         print("Бот остановлен пользователем")
