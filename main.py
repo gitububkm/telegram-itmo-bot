@@ -230,6 +230,22 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     application.add_error_handler(error_handler)
 
+    # Убеждаемся, что вебхук удален (для режима polling)
+    logger.info("Удаляем вебхук для корректной работы в режиме polling...")
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # Удаляем вебхук асинхронно
+    bot_instance = application.bot
+    try:
+        loop.run_until_complete(bot_instance.delete_webhook())
+        logger.info("Вебхук успешно удален")
+    except Exception as e:
+        logger.warning(f"Не удалось удалить вебхук (возможно, его уже нет): {e}")
+
+    loop.close()
+
     # Запускаем бота в режиме polling
     logger.info("Бот запущен в режиме polling")
     import asyncio
