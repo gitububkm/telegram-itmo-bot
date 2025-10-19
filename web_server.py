@@ -70,15 +70,20 @@ def start_update_processor():
                     logger.info(f"Обработка обновления: {update_data.get('update_id', 'unknown')}")
 
                     if telegram_application:
+                        # Проверяем, что приложение инициализировано
+                        if not hasattr(telegram_application, '_initialized') or not telegram_application._initialized:
+                            logger.error("❌ Попытка обработать обновление в неинициализированном приложении")
+                            continue
+
                         # Создаем Update объект из JSON данных
                         from telegram import Update
                         update = Update.de_json(update_data, telegram_application.bot)
 
                         # Обрабатываем обновление асинхронно
                         await telegram_application.process_update(update)
-                        logger.info(f"Успешно обработан webhook update: {update.update_id}")
+                        logger.info(f"✅ Успешно обработан webhook update: {update.update_id}")
                     else:
-                        logger.error("Telegram Application не инициализирован")
+                        logger.error("❌ Telegram Application не инициализирован")
 
                 except Exception as e:
                     logger.error(f"Ошибка обработки обновления: {e}")
@@ -297,6 +302,13 @@ def initialize_telegram_app(application):
     """Инициализирует Telegram Application для обработки webhook"""
     global telegram_application
     telegram_application = application
+
+    # Проверяем, что приложение инициализировано
+    if not hasattr(application, '_initialized') or not application._initialized:
+        logger.error("❌ Telegram Application не инициализирован! Вызовите application.initialize()")
+        return
+
+    logger.info("🔗 Передача Application в веб-сервер для обработки webhook")
 
     # Запускаем асинхронный процессор обновлений
     start_update_processor()

@@ -32,7 +32,11 @@ def check_environment_variables():
     for var, description in required_vars.items():
         value = os.getenv(var)
         if value:
-            print(f"✅ {description}: УСТАНОВЛЕН")
+            # Проверяем длину токена (должен быть примерно 46 символов)
+            if var == 'TELEGRAM_BOT_TOKEN' and len(value) < 40:
+                print(f"⚠️ {description}: значение подозрительно короткое ({len(value)} символов)")
+            else:
+                print(f"✅ {description}: УСТАНОВЛЕН")
         else:
             print(f"❌ {description}: НЕ УСТАНОВЛЕН")
             all_good = False
