@@ -37,28 +37,37 @@ bot_status = {
     'last_update': None
 }
 
-# Очередь для обновлений и поток для их обработки
-update_queue = asyncio.Queue()
+# Глобальные переменные для межпоточного взаимодействия
+update_queue = []
+queue_lock = threading.Lock()
 processing_thread = None
-loop = None
+shutdown_event = threading.Event()
 
 def start_update_processor():
     """Запускает асинхронный процессор обновлений"""
-    global processing_thread, loop
+    global processing_thread
 
     def run_processor():
-        global loop
+        # Создаем новое событие для asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
         async def process_updates():
-            while True:
+            logger.info("Запуск цикла обработки обновлений")
+            while not shutdown_event.is_set():
                 try:
-                    # Получаем обновление из очереди
-                    update_data = await update_queue.get()
+                    # Получаем обновление из очереди (неблокирующе)
+                    update_data = None
+                    with queue_lock:
+                        if update_queue:
+                            update_data = update_queue.pop(0)
+                            logger.info(f"Извлечено обновление из очереди, размер очереди: {len(update_queue)}")
 
-                    if update_data is None:  # Сигнал остановки
-                        break
+                    if update_data is None:
+                        await asyncio.sleep(0.1)  # Небольшая пауза
+                        continue
+
+                    logger.info(f"Обработка обновления: {update_data.get('update_id', 'unknown')}")
 
                     if telegram_application:
                         # Создаем Update объект из JSON данных
@@ -67,14 +76,14 @@ def start_update_processor():
 
                         # Обрабатываем обновление асинхронно
                         await telegram_application.process_update(update)
-                        logger.info(f"Обработан webhook update: {update.update_id}")
+                        logger.info(f"Успешно обработан webhook update: {update.update_id}")
                     else:
                         logger.error("Telegram Application не инициализирован")
 
-                    update_queue.task_done()
-
                 except Exception as e:
                     logger.error(f"Ошибка обработки обновления: {e}")
+
+            logger.info("Цикл обработки обновлений завершен")
 
         try:
             loop.run_until_complete(process_updates())
@@ -89,21 +98,16 @@ def start_update_processor():
 
 def stop_update_processor():
     """Останавливает асинхронный процессор обновлений"""
-    global processing_thread, loop
+    global processing_thread
 
     if processing_thread and processing_thread.is_alive():
-        # Отправляем сигнал остановки
-        if loop:
-            loop.call_soon_threadsafe(lambda: asyncio.create_task(stop_processing()))
+        # Устанавливаем флаг завершения
+        shutdown_event.set()
 
         processing_thread.join(timeout=5)
 
         if processing_thread.is_alive():
             logger.warning("Процессор обновлений не остановился корректно")
-
-async def stop_processing():
-    """Асинхронная функция для остановки процессинга"""
-    await update_queue.put(None)
 
 @app.route('/')
 def home():
@@ -121,45 +125,46 @@ def webhook():
             logger.warning("Получен пустой webhook запрос")
             return "OK", 200
 
-        logger.info(f"Получен webhook update: {update_data.get('update_id', 'unknown')}")
+        update_id = update_data.get('update_id', 'unknown')
+        logger.info(f"📨 Получен webhook update: {update_id}")
+
+        # Проверяем тип обновления
+        if 'message' in update_data:
+            message = update_data['message']
+            user_id = message.get('from', {}).get('id', 'unknown')
+            text = message.get('text', 'no text')
+            logger.info(f"📨 Сообщение от пользователя {user_id}: '{text}'")
 
         # Обновляем статус последнего обновления
         bot_status['last_update'] = time.time()
 
-        # Добавляем обновление в асинхронную очередь для обработки
+        # Добавляем обновление в очередь для обработки
         if processing_thread and processing_thread.is_alive():
-            # Используем синхронную версию для добавления в очередь
-            # В реальном asyncio коде это было бы await
-            def add_to_queue():
-                try:
-                    # Получаем текущий loop из процессора
-                    if loop:
-                        loop.call_soon_threadsafe(
-                            lambda: asyncio.create_task(update_queue.put(update_data))
-                        )
-                except Exception as e:
-                    logger.error(f"Ошибка добавления в очередь: {e}")
+            # Добавляем обновление в очередь синхронно
+            with queue_lock:
+                update_queue.append(update_data)
 
-            add_to_queue()
-            logger.info("Обновление добавлено в очередь для асинхронной обработки")
+            logger.info(f"✅ Обновление {update_id} добавлено в очередь для асинхронной обработки")
         else:
-            logger.error("Процессор обновлений не запущен")
+            logger.error("❌ Процессор обновлений не запущен")
             return "Update processor not running", 500
 
         return "OK", 200
 
     except Exception as e:
-        logger.error(f"Ошибка обработки webhook: {e}")
+        logger.error(f"❌ Ошибка обработки webhook: {e}")
         return "Error processing webhook", 500
 
 @app.route('/health')
 def health_check():
     """Health check endpoint для Render"""
     return jsonify({
-        'status': 'healthy', 
+        'status': 'healthy',
         'timestamp': time.time(),
         'bot_running': bot_status['is_running'],
-        'webhook_set': bot_status['webhook_set']
+        'webhook_set': bot_status['webhook_set'],
+        'queue_size': len(update_queue),
+        'processor_alive': processing_thread.is_alive() if processing_thread else False
     }), 200
 
 @app.route('/status')
@@ -173,6 +178,8 @@ def status():
         'webhook_set': bot_status['webhook_set'],
         'uptime': uptime,
         'last_update': bot_status['last_update'],
+        'queue_size': len(update_queue),
+        'processor_alive': processing_thread.is_alive() if processing_thread else False,
         'environment': {
             'telegram_token': bool(os.getenv('TELEGRAM_BOT_TOKEN')),
             'schedule_json': bool(os.getenv('SCHEDULE_JSON')),
