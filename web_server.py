@@ -75,6 +75,7 @@ def update_bot_status(running=False, last_update=None):
 
 def run_web_server():
     """Запускает веб-сервер в отдельном потоке"""
+    # Используем порт из переменной окружения или значение по умолчанию
     port = int(os.getenv('PORT', 10000))
     logger.info(f"Запуск веб-сервера на порту {port}")
 
