@@ -332,7 +332,7 @@ async def run_bot_async():
     logger.info("🎯 Бот запущен в режиме polling")
 
     try:
-        await application.run_polling(close_loop=False)
+        await application.run_polling()
     except KeyboardInterrupt:
         logger.info("⏹️ Бот завершен пользователем")
     except Exception as e:
@@ -350,38 +350,34 @@ async def stop_bot():
     logger.info("Остановка бота...")
     # Здесь можно добавить дополнительную логику остановки если нужно
 
-def main():
-    """Основная функция"""
+async def run_main_async():
+    """Асинхронная основная функция"""
     logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
 
-    # Создаем event loop заранее
-    loop = None
+    # Запускаем веб-сервер асинхронно в отдельном потоке
+    if start_web_server:
+        try:
+            web_thread = threading.Thread(target=start_web_server, daemon=True)
+            web_thread.start()
+            logger.info("✅ Веб-сервер запущен параллельно с ботом")
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
+            logger.info("Бот будет работать без веб-сервера")
 
+    # Ждем немного, чтобы веб-сервер успел запуститься
+    await asyncio.sleep(2)
+
+    # Обновляем статус бота
+    update_bot_status(running=True)
+
+    # Запускаем бота
+    await run_bot_async()
+
+def main():
+    """Основная функция - точка входа"""
     try:
-        # Запускаем веб-сервер асинхронно в отдельном потоке
-        if start_web_server:
-            try:
-                web_thread = threading.Thread(target=start_web_server, daemon=True)
-                web_thread.start()
-                logger.info("✅ Веб-сервер запущен параллельно с ботом")
-            except Exception as e:
-                logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
-                logger.info("Бот будет работать без веб-сервера")
-
-        # Ждем немного, чтобы веб-сервер успел запуститься
-        time.sleep(2)
-
-        # Создаем новый event loop для основного потока
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        # Обновляем статус бота
-        update_bot_status(running=True)
-
-        # Запускаем бота асинхронно
-        logger.info("🎯 Запуск бота асинхронно...")
-        loop.run_until_complete(run_bot_async())
-
+        # Используем asyncio.run для запуска асинхронной функции
+        asyncio.run(run_main_async())
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
     except Exception as e:
@@ -393,23 +389,20 @@ def main():
         # Отправляем уведомление о завершении работы
         try:
             temp_token = os.getenv('TELEGRAM_BOT_TOKEN')
-            if temp_token and loop:
-                # Создаем временное приложение для отправки уведомления
-                temp_app = Application.builder().token(temp_token).build()
-                success, errors = loop.run_until_complete(
-                    notify_all_users(temp_app.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
-                )
-                logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
+            if temp_token:
+                # Создаем новый event loop для отправки уведомления
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    temp_app = Application.builder().token(temp_token).build()
+                    success, errors = loop.run_until_complete(
+                        notify_all_users(temp_app.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
+                    )
+                    logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
+                finally:
+                    loop.close()
         except Exception as e:
             logger.error(f"❌ Ошибка отправки уведомления о завершении: {e}")
-
-        # Останавливаем бота
-        if loop:
-            try:
-                loop.run_until_complete(stop_bot())
-            except Exception:
-                pass
-            loop.close()
 
     logger.info("⏹️ Работа завершена")
 
