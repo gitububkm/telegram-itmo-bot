@@ -1,0 +1,49 @@
+# Виртуальное окружение
+venv/
+env/
+ENV/
+
+# Файлы окружения с токенами
+.env
+.env.local
+
+# Файлы с расписанием (содержат личную информацию)
+schedule_for_render.json
+schedule_*.json
+
+# Логи
+*.log
+logs/
+
+# Файлы Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ОС
+.DS_Store
+Thumbs.db
