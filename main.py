@@ -4,6 +4,7 @@ import logging
 import time
 import pickle
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
@@ -90,7 +91,9 @@ def load_schedule():
 def get_current_week_type(target_date=None):
     """Определяет тип текущей недели (четная/нечетная)"""
     if target_date is None:
-        target_date = datetime.now()
+        # Используем московское время
+        moscow_tz = ZoneInfo("Europe/Moscow")
+        target_date = datetime.now(moscow_tz)
 
     # Находим ближайший понедельник в прошлом (день отсчета)
     days_since_monday = (target_date.weekday() - 0) % 7  # 0 = понедельник
@@ -99,21 +102,21 @@ def get_current_week_type(target_date=None):
     else:
         reference_monday = target_date - timedelta(days=days_since_monday)
 
-    # Базовая дата - 12 октября 2025, воскресенье, конец четной недели
-    base_date = datetime(2025, 10, 12)  # воскресенье
+    # Базовая дата - 6 октября 2025, понедельник, начало четной недели
+    base_date = datetime(2025, 10, 6, tzinfo=ZoneInfo("Europe/Moscow"))  # понедельник
 
     # Вычисляем количество недель с базовой даты до дня отсчета
     days_since_base = (reference_monday - base_date).days
     weeks_since_base = days_since_base // 7
 
     # Определяем тип недели на основе дня отсчета
-    # Базовая дата - конец четной недели, поэтому:
-    # Если день отсчета - четное количество недель от базовой даты - нечетная неделя
-    # Если день отсчета - нечетное количество недель от базовой даты - четная неделя
+    # Базовая дата - начало четной недели, поэтому:
+    # Если день отсчета - четное количество недель от базовой даты - четная неделя
+    # Если день отсчета - нечетное количество недель от базовой даты - нечетная неделя
     if weeks_since_base % 2 == 0:
-        return 1  # нечетная неделя
-    else:
         return 2  # четная неделя
+    else:
+        return 1  # нечетная неделя
 
 def get_weekday_name(date):
     """Получает название дня недели на русском"""
@@ -148,10 +151,11 @@ def get_schedule_for_date(date_str=None):
         if date_str:
             # Парсим дату в формате ДД.ММ
             day, month = map(int, date_str.split('.'))
-            year = datetime.now().year
-            target_date = datetime(year, month, day)
+            year = datetime.now(ZoneInfo("Europe/Moscow")).year
+            target_date = datetime(year, month, day, tzinfo=ZoneInfo("Europe/Moscow"))
         else:
-            target_date = datetime.now()
+            # Используем московское время
+            target_date = get_moscow_time()
 
         current_week_type = get_current_week_type(target_date)
         weekday_name = get_weekday_name(target_date)
@@ -192,7 +196,11 @@ def get_week_schedule():
     # Находим нужную неделю в расписании
     for week in SCHEDULE_DATA['schedule']:
         if week['week'] == current_week_type:
-            response = "📅 Расписание на неделю\n\n"
+            current_time = get_moscow_time()
+            week_start = current_time - timedelta(days=current_time.weekday())
+            week_end = week_start + timedelta(days=6)
+
+            response = f"📅 Расписание на неделю ({week_start.strftime('%d.%m')} - {week_end.strftime('%d.%m.%Y')})\n\n"
 
             for day in week['days']:
                 day_name = day['day']
@@ -211,6 +219,47 @@ def get_week_schedule():
             return response
 
     return "❌ Расписание не найдено"
+
+def get_moscow_time():
+    """Получает текущее время в Москве"""
+    moscow_tz = ZoneInfo("Europe/Moscow")
+    return datetime.now(moscow_tz)
+
+def format_moscow_time(dt=None):
+    """Форматирует время в московском часовом поясе"""
+    if dt is None:
+        dt = get_moscow_time()
+
+    return dt.strftime("%d.%m.%Y %H:%M:%S (МСК)")
+
+def is_new_day(current_time=None):
+    """Проверяет, начался ли новый день по московскому времени"""
+    if current_time is None:
+        current_time = get_moscow_time()
+
+    # Сравниваем с временем начала дня (00:00:00)
+    day_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Если текущее время больше или равно началу дня, то день уже начался
+    return current_time >= day_start
+
+def get_days_since_date(target_date_str, current_time=None):
+    """Вычисляет количество дней между датой и текущим временем в Москве"""
+    if current_time is None:
+        current_time = get_moscow_time()
+
+    try:
+        # Парсим целевую дату (предполагаем формат ДД.ММ.ГГГГ)
+        target_date = datetime.strptime(target_date_str, "%d.%m.%Y")
+        # Добавляем московский часовой пояс
+        target_date = target_date.replace(tzinfo=ZoneInfo("Europe/Moscow"))
+
+        # Вычисляем разницу в днях
+        delta = current_time - target_date
+        return delta.days
+
+    except ValueError:
+        return None
 
 def get_main_menu():
     """Возвращает главное меню с командами"""
