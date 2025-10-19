@@ -299,10 +299,10 @@ def create_application():
         return None
 
     # Проверяем токен
-    token = os.getenv('BOT_TOKEN')
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
-        logger.error("❌ Не найден токен бота в переменной окружения BOT_TOKEN")
-        logger.error("Убедитесь, что переменная окружения BOT_TOKEN установлена в Render Dashboard")
+        logger.error("❌ Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
+        logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
         return None
 
     # Создаем приложение

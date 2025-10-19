@@ -5,7 +5,7 @@
 Установите следующие переменные окружения в Render Dashboard:
 
 ### Обязательные переменные:
-- `BOT_TOKEN` - токен вашего Telegram бота (получить у @BotFather)
+- `TELEGRAM_BOT_TOKEN` - токен вашего Telegram бота (получить у @BotFather)
 - `SCHEDULE_JSON` - JSON с расписанием занятий
 - `RENDER_APP_NAME` - имя вашего приложения на Render (например: `my-telegram-bot`)
 

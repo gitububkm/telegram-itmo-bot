@@ -95,7 +95,7 @@ def status():
         'uptime': uptime,
         'last_update': bot_status['last_update'],
         'environment': {
-            'telegram_token': bool(os.getenv('BOT_TOKEN')),
+            'telegram_token': bool(os.getenv('TELEGRAM_BOT_TOKEN')),
             'schedule_json': bool(os.getenv('SCHEDULE_JSON')),
             'port': os.getenv('PORT', '10000')
         }
@@ -104,9 +104,9 @@ def status():
 def set_webhook():
     """Устанавливает webhook для Telegram бота"""
     try:
-        token = os.getenv('BOT_TOKEN')
+        token = os.getenv('TELEGRAM_BOT_TOKEN')
         if not token:
-            logger.error("❌ Не найден токен бота в переменной окружения BOT_TOKEN")
+            logger.error("❌ Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
             return False
         
         # Получаем URL приложения из переменной окружения или используем Render URL
