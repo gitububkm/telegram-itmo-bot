@@ -239,9 +239,12 @@ def init_bot():
 
     return True
 
-@app.route('/webhook', methods=['POST'])
+@app.route('/webhook', methods=['POST', 'GET'])
 def webhook():
     """Обработчик вебхуков от Telegram"""
+    if request.method == 'GET':
+        return jsonify({'status': 'webhook active', 'bot_initialized': bot is not None}), 200
+
     if not bot:
         return jsonify({'error': 'Bot not initialized'}), 500
 
