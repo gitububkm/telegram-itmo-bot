@@ -231,25 +231,17 @@ def main():
     application.add_error_handler(error_handler)
 
     # Удаляем вебхук синхронно (чтобы избежать проблем с event loop)
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         loop.run_until_complete(application.bot.delete_webhook())
         logger.info("Вебхук успешно удален")
-        loop.close()
     except Exception as e:
         logger.warning(f"Не удалось удалить вебхук (возможно, его уже нет): {e}")
 
-    # Запускаем бота в режиме polling
+    # Запускаем бота в режиме polling в том же event loop
     logger.info("Бот запущен в режиме polling")
-    import asyncio
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        # Если loop уже запущен (например, в Jupyter), создаем новый
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
     loop.run_until_complete(application.run_polling())
 
 if __name__ == '__main__':
