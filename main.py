@@ -354,23 +354,23 @@ def main():
     """Основная функция"""
     logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
 
-    # Запускаем веб-сервер асинхронно в отдельном потоке
-    if start_web_server:
-        try:
-            web_thread = threading.Thread(target=start_web_server, daemon=True)
-            web_thread.start()
-            logger.info("✅ Веб-сервер запущен параллельно с ботом")
-        except Exception as e:
-            logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
-            logger.info("Бот будет работать без веб-сервера")
-
-    # Ждем немного, чтобы веб-сервер успел запуститься
-    time.sleep(2)
-
-    # Запускаем бота асинхронно в основном потоке
-    logger.info("🎯 Запуск бота асинхронно...")
+    # Создаем event loop заранее
+    loop = None
 
     try:
+        # Запускаем веб-сервер асинхронно в отдельном потоке
+        if start_web_server:
+            try:
+                web_thread = threading.Thread(target=start_web_server, daemon=True)
+                web_thread.start()
+                logger.info("✅ Веб-сервер запущен параллельно с ботом")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось запустить веб-сервер: {e}")
+                logger.info("Бот будет работать без веб-сервера")
+
+        # Ждем немного, чтобы веб-сервер успел запуститься
+        time.sleep(2)
+
         # Создаем новый event loop для основного потока
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -378,7 +378,8 @@ def main():
         # Обновляем статус бота
         update_bot_status(running=True)
 
-        # Запускаем бота
+        # Запускаем бота асинхронно
+        logger.info("🎯 Запуск бота асинхронно...")
         loop.run_until_complete(run_bot_async())
 
     except KeyboardInterrupt:
@@ -388,30 +389,27 @@ def main():
     finally:
         logger.info("Завершаем работу бота...")
         update_bot_status(running=False)
+
+        # Отправляем уведомление о завершении работы
         try:
-            # Создаем временное приложение для отправки уведомления
             temp_token = os.getenv('TELEGRAM_BOT_TOKEN')
-            if temp_token:
+            if temp_token and loop:
+                # Создаем временное приложение для отправки уведомления
                 temp_app = Application.builder().token(temp_token).build()
-                # Создаем новый event loop для асинхронных операций
-                import asyncio
-                temp_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(temp_loop)
-                try:
-                    success, errors = temp_loop.run_until_complete(
-                        notify_all_users(temp_app.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
-                    )
-                    logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
-                finally:
-                    temp_loop.close()
+                success, errors = loop.run_until_complete(
+                    notify_all_users(temp_app.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
+                )
+                logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
         except Exception as e:
             logger.error(f"❌ Ошибка отправки уведомления о завершении: {e}")
 
-        try:
-            loop.run_until_complete(stop_bot())
-        except Exception:
-            pass
-        loop.close()
+        # Останавливаем бота
+        if loop:
+            try:
+                loop.run_until_complete(stop_bot())
+            except Exception:
+                pass
+            loop.close()
 
     logger.info("⏹️ Работа завершена")
 
