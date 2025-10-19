@@ -202,22 +202,24 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
 
-async def setup_bot():
-    """Асинхронная настройка бота"""
+def main():
+    """Основная функция"""
+    logger.info("Запуск Telegram бота ИТМО...")
+
     # Загружаем расписание
     load_schedule()
 
     if not SCHEDULE_DATA:
         logger.error("Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
         logger.error("Убедитесь, что переменная окружения SCHEDULE_JSON установлена в Render Dashboard")
-        return None
+        return
 
     # Проверяем токен
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
         logger.error("Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
         logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
-        return None
+        return
 
     # Создаем приложение
     application = Application.builder().token(token).build()
@@ -228,34 +230,21 @@ async def setup_bot():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     application.add_error_handler(error_handler)
 
-    return application
+    # Функция для инициализации бота с удалением вебхука
+    async def init_and_run():
+        logger.info("Удаляем вебхук для корректной работы в режиме polling...")
+        try:
+            await application.bot.delete_webhook()
+            logger.info("Вебхук успешно удален")
+        except Exception as e:
+            logger.warning(f"Не удалось удалить вебхук (возможно, его уже нет): {e}")
 
-async def main_async():
-    """Основная асинхронная функция"""
-    logger.info("Запуск Telegram бота ИТМО...")
+        logger.info("Бот запущен в режиме polling")
+        await application.run_polling()
 
-    # Настраиваем бота
-    application = await setup_bot()
-    if not application:
-        logger.error("Не удалось настроить бота")
-        return
-
-    # Убеждаемся, что вебхук удален (для режима polling)
-    logger.info("Удаляем вебхук для корректной работы в режиме polling...")
-    try:
-        await application.bot.delete_webhook()
-        logger.info("Вебхук успешно удален")
-    except Exception as e:
-        logger.warning(f"Не удалось удалить вебхук (возможно, его уже нет): {e}")
-
-    # Запускаем бота в режиме polling
-    logger.info("Бот запущен в режиме polling")
-    await application.run_polling()
-
-def main():
-    """Синхронная точка входа"""
+    # Запускаем бота
     import asyncio
-    asyncio.run(main_async())
+    asyncio.run(init_and_run())
 
 if __name__ == '__main__':
     main()
