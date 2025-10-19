@@ -79,14 +79,19 @@ def run_web_server():
     port = int(os.getenv('PORT', 10000))
     logger.info(f"Запуск веб-сервера на порту {port}")
 
-    # Запускаем сервер
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Запускаем сервер в отдельном потоке без блокировки
+    from werkzeug.serving import make_server
+    import threading
+
+    server = make_server('0.0.0.0', port, app, threaded=True)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    logger.info(f"Веб-сервер запущен на порту {port}")
 
 def start_web_server():
     """Запускает веб-сервер в фоне"""
-    web_thread = threading.Thread(target=run_web_server, daemon=True)
-    web_thread.start()
-    logger.info("Веб-сервер запущен в фоновом режиме")
+    # run_web_server уже создает свой поток
+    run_web_server()
 
 if __name__ == '__main__':
     start_web_server()
