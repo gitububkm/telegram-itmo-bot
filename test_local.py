@@ -20,9 +20,9 @@ SCHEDULE_JSON = json.dumps({
                     "day": "Понедельник",
                     "classes": [
                         {
-                            "time": "11:30 - 13:30",
+                            "time": "09:00 - 10:30",
                             "subject": "Название предмета",
-                            "room": "306",
+                            "room": "101",
                             "address": "Адрес корпуса"
                         }
                     ]
@@ -30,7 +30,7 @@ SCHEDULE_JSON = json.dumps({
                 {
                     "day": "Воскресенье",
                     "classes": [],
-                    "note": "Выходной наконец то!"
+                    "note": "Выходной"
                 }
             ]
         },
@@ -41,9 +41,9 @@ SCHEDULE_JSON = json.dumps({
                     "day": "Понедельник",
                     "classes": [
                         {
-                            "time": "11:30 - 13:00",
+                            "time": "09:00 - 10:30",
                             "subject": "Название предмета",
-                            "room": "306",
+                            "room": "101",
                             "address": "Адрес корпуса"
                         }
                     ]
