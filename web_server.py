@@ -155,6 +155,50 @@ def webhook():
         logger.error(f"❌ Ошибка обработки webhook: {e}")
         return "Error processing webhook", 500
 
+@app.route('/check-webhook')
+def check_webhook():
+    """Проверяет настройки webhook в Telegram"""
+    try:
+        token = os.getenv('TELEGRAM_BOT_TOKEN')
+        if not token:
+            return jsonify({
+                "error": "TELEGRAM_BOT_TOKEN не установлен",
+                "status": "error"
+            }), 500
+
+        import requests
+
+        response = requests.get(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                webhook_info = data.get('result', {})
+                return jsonify({
+                    "webhook_url": webhook_info.get('url', 'не установлен'),
+                    "pending_update_count": webhook_info.get('pending_update_count', 0),
+                    "last_error_date": webhook_info.get('last_error_date'),
+                    "last_error_message": webhook_info.get('last_error_message'),
+                    "max_connections": webhook_info.get('max_connections', 40),
+                    "ip_address": webhook_info.get('ip_address'),
+                    "status": "success"
+                })
+            else:
+                return jsonify({
+                    "error": f"Ошибка API Telegram: {data}",
+                    "status": "error"
+                }), 500
+        else:
+            return jsonify({
+                "error": f"Ошибка HTTP: {response.status_code}",
+                "status": "error"
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Исключение: {e}",
+            "status": "error"
+        }), 500
+
 @app.route('/health')
 def health_check():
     """Health check endpoint для Render"""
@@ -188,13 +232,13 @@ def status():
     }), 200
 
 def set_webhook():
-    """Устанавливает webhook для Telegram бота"""
+    """Устанавливает webhook для Telegram бота асинхронно"""
     try:
         token = os.getenv('TELEGRAM_BOT_TOKEN')
         if not token:
             logger.error("❌ Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
             return False
-        
+
         # Получаем URL приложения из переменной окружения или используем Render URL
         app_name = os.getenv('RENDER_APP_NAME')
         if app_name:
@@ -205,21 +249,35 @@ def set_webhook():
             if not webhook_url:
                 logger.error("❌ Не установлены переменные окружения RENDER_APP_NAME или WEBHOOK_URL")
                 return False
-        
+
         logger.info(f"🔗 Установка webhook: {webhook_url}")
-        
-        # Создаем бота и устанавливаем webhook
-        bot = Bot(token=token)
-        result = bot.set_webhook(url=webhook_url)
-        
-        if result:
-            logger.info("✅ Webhook успешно установлен")
-            bot_status['webhook_set'] = True
-            return True
-        else:
-            logger.error("❌ Не удалось установить webhook")
+
+        # Создаем event loop для асинхронного вызова
+        import asyncio
+
+        async def _set_webhook():
+            bot = Bot(token=token)
+            return await bot.set_webhook(url=webhook_url)
+
+        # Создаем новый event loop для асинхронного вызова
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(_set_webhook())
+            loop.close()
+
+            if result:
+                logger.info("✅ Webhook успешно установлен")
+                bot_status['webhook_set'] = True
+                return True
+            else:
+                logger.error("❌ Не удалось установить webhook")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка при создании event loop: {e}")
             return False
-            
+
     except TelegramError as e:
         logger.error(f"❌ Ошибка Telegram API при установке webhook: {e}")
         return False

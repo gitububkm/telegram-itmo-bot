@@ -237,6 +237,86 @@ def run_full_diagnosis():
 
     return successful_tests == total_tests
 
+def check_webhook_settings():
+    """Проверяет настройки вебхука в Telegram"""
+    print("\n📡 Проверка настроек webhook в Telegram...")
+
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    app_name = os.getenv('RENDER_APP_NAME', 'telegram-itmo-bot')
+
+    if not token:
+        print("❌ TELEGRAM_BOT_TOKEN не установлен")
+        return False
+
+    try:
+        response = requests.get(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                webhook_info = data.get('result', {})
+                expected_url = f"https://{app_name}.onrender.com/webhook"
+
+                print(f"📍 Текущий webhook URL: {webhook_info.get('url', 'не установлен')}")
+                print(f"🎯 Ожидаемый URL: {expected_url}")
+                print(f"📊 Ожидающих обновлений: {webhook_info.get('pending_update_count', 0)}")
+                print(f"🔗 Максимум соединений: {webhook_info.get('max_connections', 40)}")
+
+                if webhook_info.get('url') == expected_url:
+                    print("✅ Webhook настроен правильно!")
+                    return True
+                else:
+                    print("❌ Webhook настроен неправильно или не установлен")
+                    print(f"   Требуемый URL: {expected_url}")
+                    return False
+            else:
+                print(f"❌ Ошибка API Telegram: {data}")
+                return False
+        else:
+            print(f"❌ Ошибка HTTP: {response.status_code}")
+            return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Не удалось подключиться к Telegram API: {e}")
+        return False
+
+def test_webhook_response():
+    """Тестирует ответ webhook URL"""
+    print("\n🌐 Тестирование ответа webhook URL...")
+
+    app_name = os.getenv('RENDER_APP_NAME', 'telegram-itmo-bot')
+
+    try:
+        webhook_url = f"https://{app_name}.onrender.com/webhook"
+        print(f"🔗 Тестирую URL: {webhook_url}")
+
+        # Тестовый запрос к webhook
+        test_data = {
+            "update_id": 999999999,
+            "message": {
+                "message_id": 1,
+                "from": {"id": 123456789, "is_bot": False, "first_name": "Test"},
+                "chat": {"id": 123456789, "type": "private"},
+                "date": 1640995200,
+                "text": "/test"
+            }
+        }
+
+        response = requests.post(webhook_url, json=test_data, timeout=10)
+
+        print(f"📊 Статус ответа: {response.status_code}")
+        print(f"📝 Ответ сервера: {response.text}")
+
+        if response.status_code == 200 and "OK" in response.text:
+            print("✅ Webhook URL отвечает корректно!")
+            return True
+        else:
+            print("❌ Webhook URL не отвечает корректно")
+            return False
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Не удалось подключиться к webhook URL: {e}")
+        return False
+
 if __name__ == "__main__":
     success = run_full_diagnosis()
     sys.exit(0 if success else 1)
