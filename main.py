@@ -3,6 +3,8 @@ import json
 import logging
 import time
 import threading
+import asyncio
+import pickle
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
@@ -24,6 +26,50 @@ logger = logging.getLogger(__name__)
 
 # Глобальные переменные
 SCHEDULE_DATA = None
+USERS_FILE = "bot_users.pkl"
+
+def load_users():
+    """Загружает список пользователей из файла"""
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'rb') as f:
+                return pickle.load(f)
+        return set()
+    except Exception as e:
+        logger.error(f"Ошибка загрузки пользователей: {e}")
+        return set()
+
+def save_users(users):
+    """Сохраняет список пользователей в файл"""
+    try:
+        with open(USERS_FILE, 'wb') as f:
+            pickle.dump(users, f)
+        logger.info(f"Сохранено {len(users)} пользователей")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения пользователей: {e}")
+
+def add_user(user_id):
+    """Добавляет пользователя в список"""
+    users = load_users()
+    users.add(user_id)
+    save_users(users)
+
+async def notify_all_users(bot, message):
+    """Отправляет уведомление всем пользователям"""
+    users = load_users()
+    success_count = 0
+    error_count = 0
+
+    for user_id in users:
+        try:
+            await bot.send_message(chat_id=user_id, text=message)
+            success_count += 1
+        except Exception as e:
+            logger.warning(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+            error_count += 1
+
+    logger.info(f"Уведомления отправлены: {success_count} успешно, {error_count} ошибок")
+    return success_count, error_count
 
 def load_schedule():
     """Загружает расписание из переменной окружения"""
@@ -176,6 +222,10 @@ def get_main_menu():
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
+    user_id = update.message.from_user.id
+    add_user(user_id)
+    logger.info(f"Новый пользователь: {user_id}")
+
     await update.message.reply_text(
         '🎓 Добро пожаловать в бот расписания ИТМО!\n\n'
         'Выберите действие:',
@@ -236,27 +286,24 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
 
-def run_bot():
-    """Функция для запуска бота в отдельном потоке"""
-    logger.info("Запуск Telegram бота ИТМО...")
+async def run_bot_async():
+    """Асинхронная функция для запуска бота"""
+    logger.info("🚀 Запуск Telegram бота ИТМО...")
 
     # Загружаем расписание
     load_schedule()
 
     if not SCHEDULE_DATA:
-        logger.error("Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
+        logger.error("❌ Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
         logger.error("Убедитесь, что переменная окружения SCHEDULE_JSON установлена в Render Dashboard")
         return
 
     # Проверяем токен
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
-        logger.error("Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
+        logger.error("❌ Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
         logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
         return
-
-    # Обновляем статус бота
-    update_bot_status(running=True)
 
     # Создаем приложение
     application = Application.builder().token(token).build()
@@ -268,39 +315,46 @@ def run_bot():
     application.add_error_handler(error_handler)
 
     # Удаляем вебхук асинхронно
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
     try:
-        loop.run_until_complete(application.bot.delete_webhook())
-        logger.info("Вебхук успешно удален")
+        await application.bot.delete_webhook()
+        logger.info("✅ Вебхук успешно удален")
     except Exception as e:
-        logger.warning(f"Не удалось удалить вебхук (возможно, его уже нет): {e}")
+        logger.warning(f"⚠️ Не удалось удалить вебхук (возможно, его уже нет): {e}")
+
+    # Отправляем уведомление о запуске бота
+    try:
+        success, errors = await notify_all_users(application.bot, "🤖 Я снова онлайн! Бот расписания ИТМО готов к работе!")
+        logger.info(f"✅ Уведомление о запуске отправлено {success} пользователям")
+    except Exception as e:
+        logger.error(f"❌ Ошибка отправки уведомления о запуске: {e}")
 
     # Запускаем бота в режиме polling
-    logger.info("Бот запущен в режиме polling")
+    logger.info("🎯 Бот запущен в режиме polling")
 
     try:
-        loop.run_until_complete(application.run_polling(close_loop=False))
+        await application.run_polling(close_loop=False)
     except KeyboardInterrupt:
-        logger.info("Бот завершен пользователем")
+        logger.info("⏹️ Бот завершен пользователем")
     except Exception as e:
-        logger.error(f"Ошибка при работе бота: {e}")
+        logger.error(f"❌ Ошибка при работе бота: {e}")
     finally:
-        logger.info("Завершаем работу бота...")
-        update_bot_status(running=False)
+        # Отправляем уведомление о завершении работы
         try:
-            loop.run_until_complete(application.stop())
-        except Exception:
-            pass
-        loop.close()
+            success, errors = await notify_all_users(application.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
+            logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
+        except Exception as e:
+            logger.error(f"❌ Ошибка отправки уведомления о завершении: {e}")
+
+async def stop_bot():
+    """Асинхронная функция для остановки бота"""
+    logger.info("Остановка бота...")
+    # Здесь можно добавить дополнительную логику остановки если нужно
 
 def main():
     """Основная функция"""
     logger.info("🚀 Запуск Telegram бота ИТМО с веб-сервером...")
 
-    # Запускаем веб-сервер в отдельном потоке (если доступен)
+    # Запускаем веб-сервер асинхронно в отдельном потоке
     if start_web_server:
         try:
             web_thread = threading.Thread(target=start_web_server, daemon=True)
@@ -311,16 +365,53 @@ def main():
             logger.info("Бот будет работать без веб-сервера")
 
     # Ждем немного, чтобы веб-сервер успел запуститься
-    time.sleep(3)
+    time.sleep(2)
 
-    # Запускаем бота в главном потоке (требуется для asyncio)
-    logger.info("🎯 Запуск бота в главном потоке...")
+    # Запускаем бота асинхронно в основном потоке
+    logger.info("🎯 Запуск бота асинхронно...")
+
     try:
-        run_bot()
+        # Создаем новый event loop для основного потока
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Обновляем статус бота
+        update_bot_status(running=True)
+
+        # Запускаем бота
+        loop.run_until_complete(run_bot_async())
+
     except KeyboardInterrupt:
         logger.info("⏹️ Остановка бота пользователем...")
     except Exception as e:
         logger.error(f"❌ Критическая ошибка бота: {e}")
+    finally:
+        logger.info("Завершаем работу бота...")
+        update_bot_status(running=False)
+        try:
+            # Создаем временное приложение для отправки уведомления
+            temp_token = os.getenv('TELEGRAM_BOT_TOKEN')
+            if temp_token:
+                temp_app = Application.builder().token(temp_token).build()
+                # Создаем новый event loop для асинхронных операций
+                import asyncio
+                temp_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(temp_loop)
+                try:
+                    success, errors = temp_loop.run_until_complete(
+                        notify_all_users(temp_app.bot, "🔧 Я сломался! Бот расписания ИТМО временно недоступен.")
+                    )
+                    logger.info(f"✅ Уведомление о завершении отправлено {success} пользователям")
+                finally:
+                    temp_loop.close()
+        except Exception as e:
+            logger.error(f"❌ Ошибка отправки уведомления о завершении: {e}")
+
+        try:
+            loop.run_until_complete(stop_bot())
+        except Exception:
+            pass
+        loop.close()
 
     logger.info("⏹️ Работа завершена")
 

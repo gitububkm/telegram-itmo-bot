@@ -11,6 +11,9 @@ ENV/
 schedule_for_render.json
 schedule_*.json
 
+# Файл с пользователями бота (содержит ID пользователей)
+bot_users.pkl
+
 # Логи
 *.log
 logs/
