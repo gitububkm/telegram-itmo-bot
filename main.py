@@ -147,20 +147,21 @@ def get_week_schedule():
 
     return "❌ Расписание не найдено"
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /start"""
+def get_main_menu():
+    """Возвращает главное меню с командами"""
     keyboard = [
         [InlineKeyboardButton("📅 Сегодня", callback_data='today')],
         [InlineKeyboardButton("📆 Конкретная дата", callback_data='date')],
         [InlineKeyboardButton("📅 На неделю", callback_data='week')]
     ]
+    return InlineKeyboardMarkup(keyboard)
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
     await update.message.reply_text(
         '🎓 Добро пожаловать в бот расписания ИТМО!\n\n'
         'Выберите действие:',
-        reply_markup=reply_markup
+        reply_markup=get_main_menu()
     )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -170,17 +171,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == 'today':
         schedule = get_schedule_for_date()
-        await query.edit_message_text(text=schedule)
+        # Показываем расписание и меню
+        await query.edit_message_text(
+            text=f"{schedule}\n\nВыберите следующее действие:",
+            reply_markup=get_main_menu()
+        )
 
     elif query.data == 'date':
         await query.edit_message_text(
-            text='📝 Введите дату в формате ДД.ММ (например: 25.12)'
+            text='📝 Введите дату в формате ДД.ММ (например: 25.12)\n\nПосле ввода даты выберите следующее действие:',
+            reply_markup=get_main_menu()
         )
         context.user_data['waiting_for_date'] = True
 
     elif query.data == 'week':
         schedule = get_week_schedule()
-        await query.edit_message_text(text=schedule)
+        # Показываем расписание и меню
+        await query.edit_message_text(
+            text=f"{schedule}\n\nВыберите следующее действие:",
+            reply_markup=get_main_menu()
+        )
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик текстовых сообщений"""
@@ -188,11 +198,17 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date_str = update.message.text.strip()
         schedule = get_schedule_for_date(date_str)
 
-        await update.message.reply_text(schedule)
+        # Показываем расписание и меню
+        await update.message.reply_text(
+            f"{schedule}\n\nВыберите следующее действие:",
+            reply_markup=get_main_menu()
+        )
         context.user_data['waiting_for_date'] = False
     else:
+        # Показываем меню для неизвестных команд
         await update.message.reply_text(
-            '❓ Неизвестная команда. Используйте /start для начала работы с ботом.'
+            '❓ Неизвестная команда. Выберите действие из меню:',
+            reply_markup=get_main_menu()
         )
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
