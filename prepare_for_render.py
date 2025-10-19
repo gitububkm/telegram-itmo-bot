@@ -32,7 +32,7 @@ def main():
 
     # Обновляем файлы для совместимости
     print("\n🔧 Обновление файлов для совместимости...")
-    run_command("git add runtime.txt requirements.txt main.py", "Добавление обновленных файлов")
+    run_command("git add runtime.txt requirements.txt main.py", "Добавление обновленных файлов для Flask веб-сервера")
 
     if git_status:
         files = git_status.strip().split('\n')
@@ -91,14 +91,14 @@ def main():
     print("\n" + "=" * 60)
     print("🎉 Репозиторий готов к повторному деплою на Render!")
     print("\n📝 Следующие шаги:")
-    print("1. Закоммитьте изменения: git add . && git commit -m 'Update python-telegram-bot to v21.7 for Python 3.13 compatibility'")
+    print("1. Закоммитьте изменения: git add . && git commit -m 'Add Flask webhook server for Render deployment'")
     print("2. Отправьте на GitHub: git push")
     print("3. Render автоматически запустит повторный деплой")
     print("4. Убедитесь, что переменные окружения установлены в Render Dashboard:")
     print("   - TELEGRAM_BOT_TOKEN: ваш токен бота")
     print("   - SCHEDULE_JSON: ваше расписание (из env_example.txt)")
     print("5. После деплоя настройте вебхук:")
-    print("   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://your-app.onrender.com")
+    print("   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://your-app.onrender.com/webhook")
     print("6. Проверьте логи в Render Dashboard после деплоя")
 
     return True

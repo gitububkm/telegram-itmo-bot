@@ -2,7 +2,8 @@ import os
 import json
 import logging
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from flask import Flask, request, jsonify
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 # Настройка логирования
@@ -12,11 +13,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Расписание (будет загружено из переменной окружения)
+# Глобальные переменные
 SCHEDULE_DATA = None
-
-# Токен бота (берется только из переменной окружения)
-TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TOKEN = None
+bot = None
+app = Flask(__name__)
 
 def load_schedule():
     """Загружает расписание из переменной окружения"""
@@ -204,25 +205,54 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update and update.message:
         await update.message.reply_text('❌ Произошла ошибка. Попробуйте еще раз.')
 
-def main():
-    """Основная функция"""
+def init_bot():
+    """Инициализирует бота и загружает данные"""
+    global TOKEN, bot
+
     # Загружаем расписание
     load_schedule()
 
     if not SCHEDULE_DATA:
         logger.error("Не удалось загрузить расписание из переменной окружения SCHEDULE_JSON")
         logger.error("Убедитесь, что переменная окружения SCHEDULE_JSON установлена в Render Dashboard")
-        return
+        return False
 
     # Проверяем токен
     token = os.getenv('TELEGRAM_BOT_TOKEN')
     if not token:
         logger.error("Не найден токен бота в переменной окружения TELEGRAM_BOT_TOKEN")
         logger.error("Убедитесь, что переменная окружения TELEGRAM_BOT_TOKEN установлена в Render Dashboard")
-        return
+        return False
 
-    # Создаем приложение
-    application = Application.builder().token(token).build()
+    TOKEN = token
+    bot = Bot(token=token)
+    return True
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    """Обработчик вебхуков от Telegram"""
+    if not bot:
+        return jsonify({'error': 'Bot not initialized'}), 500
+
+    try:
+        update_data = request.get_json()
+        if update_data:
+            update = Update.de_json(update_data, bot)
+            # Обрабатываем обновление асинхронно
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(process_update(update))
+            loop.close()
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        logger.error(f"Ошибка обработки вебхука: {e}")
+        return jsonify({'error': str(e)}), 500
+
+async def process_update(update):
+    """Обрабатывает обновление от Telegram"""
+    # Создаем минимальное приложение для обработки одного обновления
+    application = Application.builder().token(TOKEN).build()
 
     # Регистрируем обработчики
     application.add_handler(CommandHandler("start", start))
@@ -230,23 +260,41 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     application.add_error_handler(error_handler)
 
-    # Запускаем бота
-    logger.info("Бот запущен")
+    # Обрабатываем обновление
+    await application.process_update(update)
+
+def main():
+    """Основная функция"""
+    logger.info("Запуск Telegram бота ИТМО...")
+
+    # Инициализируем бота
+    if not init_bot():
+        logger.error("Не удалось инициализировать бота")
+        return
+
+    logger.info("Бот успешно инициализирован")
 
     # Проверяем, запущен ли бот в Render (есть переменная PORT)
     port = os.getenv('PORT')
     if port:
         # Запуск в режиме веб-сервера для вебхуков
-        logger.info("Запуск в режиме веб-сервера для Render")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=int(port),
-            webhook_url=None  # Будет настроен через setWebhook
-        )
+        logger.info(f"Запуск веб-сервера на порту {port}")
+        app.run(host='0.0.0.0', port=int(port), debug=False)
     else:
         # Запуск в режиме polling для локальной разработки
         logger.info("Запуск в режиме polling")
-        application.run_polling()
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        application = Application.builder().token(TOKEN).build()
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CallbackQueryHandler(button_handler))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+        application.add_error_handler(error_handler)
+
+        loop.run_until_complete(application.run_polling())
+        loop.close()
 
 if __name__ == '__main__':
     main()
